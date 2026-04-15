@@ -2,6 +2,7 @@ import os
 import json
 import time
 from io import BytesIO
+from pathlib import Path
 os.environ["DISABLE_VERSION_CHECK"] = "1"
 import fire
 import asyncio
@@ -30,6 +31,7 @@ if is_in_ci():
 def main(
     model_name_or_path: str,
     processor_name_or_path: str = None,
+    image_root: str = None,
     dataset: str = "alpaca_en_demo",
     dataset_dir: str = "data",
     template: str = "default",
@@ -101,12 +103,20 @@ def main(
     
     # import IPython; IPython.embed(); 
 
-    def preprocess_sample(sample, tokenizer, template_obj, image_resolution):
+    def preprocess_sample(sample, tokenizer, template_obj, image_resolution, image_root):
         if sample["images"]:
+            resolved_images = []
+            for image_path in sample["images"]:
+                image_path = Path(image_path)
+                if image_path.is_absolute() or image_root is None:
+                    resolved_images.append(str(image_path))
+                else:
+                    resolved_images.append(str((Path(image_root) / image_path).resolve()))
+
             image_max_pixels = 262144
             image_min_pixels = 1024
             multi_modal_data = template_obj.mm_plugin._regularize_images(
-                sample["images"], image_max_pixels=image_max_pixels, image_min_pixels=image_min_pixels)
+                resolved_images, image_max_pixels=image_max_pixels, image_min_pixels=image_min_pixels)
             
             new_multi_modal_data = []
             # convert to bytes
@@ -136,7 +146,14 @@ def main(
     inputs = [None] * total_dataset_len
     with concurrent.futures.ThreadPoolExecutor(max_workers=preprocessing_num_workers) as executor:
         futures = {
-            executor.submit(preprocess_sample, dataset_module["train_dataset"][idx], tokenizer, template_obj, image_resolution): idx
+            executor.submit(
+                preprocess_sample,
+                dataset_module["train_dataset"][idx],
+                tokenizer,
+                template_obj,
+                image_resolution,
+                image_root,
+            ): idx
             for idx in range(total_dataset_len)
         }
         for future in tqdm(concurrent.futures.as_completed(futures), total=len(futures), desc="Preprocessing"):
