@@ -28,6 +28,21 @@ if is_in_ci():
     import patch
 
 
+def encode_image_for_sglang(mm_data):
+    if isinstance(mm_data, str):
+        with open(mm_data, "rb") as f:
+            img_bytes = f.read()
+    elif isinstance(mm_data, bytes):
+        img_bytes = mm_data
+    else:
+        buffered = BytesIO()
+        mm_data.save(buffered, format="PNG")
+        img_bytes = buffered.getvalue()
+
+    img_base64 = base64.b64encode(img_bytes).decode("utf-8")
+    return f"data:image/png;base64,{img_base64}"
+
+
 def main(
     model_name_or_path: str,
     processor_name_or_path: str = None,
@@ -119,20 +134,8 @@ def main(
                 resolved_images, image_max_pixels=image_max_pixels, image_min_pixels=image_min_pixels)
             
             new_multi_modal_data = []
-            # convert to bytes
             for mm_data in multi_modal_data:
-                mm_data : Image.Image
-                
-                # Convert image to bytes
-                buffered = BytesIO()
-                mm_data.save(buffered, format="png",)
-                img_bytes = buffered.getvalue()
-                
-                # Encode bytes to base64 string
-                img_base64 = base64.b64encode(img_bytes).decode('utf-8')
-                img_base64 = f"data:image/png;base64,{img_base64}"
-                
-                new_multi_modal_data.append(img_base64)
+                new_multi_modal_data.append(encode_image_for_sglang(mm_data))
             
         else:
             new_multi_modal_data = None
