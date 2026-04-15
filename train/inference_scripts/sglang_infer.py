@@ -20,6 +20,7 @@ from PIL import Image
 from sglang.srt.openai_api.protocol import ChatCompletionRequest
 from sglang.srt.server_args import ServerArgs
 from sglang.srt.openai_api.adapter import v1_chat_generate_request
+from transformers import AutoProcessor, AutoTokenizer
 
 
 if is_in_ci():
@@ -28,6 +29,7 @@ if is_in_ci():
 
 def main(
     model_name_or_path: str,
+    processor_name_or_path: str = None,
     dataset: str = "alpaca_en_demo",
     dataset_dir: str = "data",
     template: str = "default",
@@ -68,7 +70,30 @@ def main(
         )
     )
     training_args = Seq2SeqTrainingArguments(output_dir="dummy_dir")
-    tokenizer_module = load_tokenizer(model_args)
+    try:
+        tokenizer_module = load_tokenizer(model_args)
+    except ValueError as exc:
+        if "Unrecognized image processor" not in str(exc):
+            raise
+
+        if not processor_name_or_path:
+            raise ValueError(
+                "Failed to load the vision processor from the fine-tuned checkpoint. "
+                "Please pass --processor_name_or_path with the original base model path "
+                "(for example Qwen/Qwen2.5-VL-7B-Instruct)."
+            ) from exc
+
+        tokenizer_module = {
+            "tokenizer": AutoTokenizer.from_pretrained(
+                model_args.model_name_or_path,
+                trust_remote_code=True,
+            ),
+            "processor": AutoProcessor.from_pretrained(
+                processor_name_or_path,
+                trust_remote_code=True,
+            ),
+        }
+
     tokenizer = tokenizer_module["tokenizer"]
     template_obj = get_template_and_fix_tokenizer(tokenizer, data_args)
     template_obj.mm_plugin.expand_mm_tokens = False  # for vllm generate
