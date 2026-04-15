@@ -30,7 +30,12 @@ if is_in_ci():
 
 def encode_image_for_sglang(mm_data):
     if isinstance(mm_data, str):
-        with open(mm_data, "rb") as f:
+        mm_path = Path(mm_data)
+        if not mm_path.exists():
+            raise FileNotFoundError(f"Image path returned by mm plugin does not exist: {mm_data}")
+        if mm_path.is_dir():
+            raise IsADirectoryError(f"Expected an image file but got a directory from mm plugin: {mm_data}")
+        with open(mm_path, "rb") as f:
             img_bytes = f.read()
     elif isinstance(mm_data, bytes):
         img_bytes = mm_data
@@ -41,6 +46,25 @@ def encode_image_for_sglang(mm_data):
 
     img_base64 = base64.b64encode(img_bytes).decode("utf-8")
     return f"data:image/png;base64,{img_base64}"
+
+
+def build_sglang_image_payload(multi_modal_data, resolved_images):
+    encoded_images = []
+    for idx, mm_data in enumerate(multi_modal_data):
+        try:
+            encoded_images.append(encode_image_for_sglang(mm_data))
+            continue
+        except (FileNotFoundError, IsADirectoryError):
+            pass
+
+        if idx >= len(resolved_images):
+            raise ValueError(
+                f"mm plugin returned an invalid image entry at index {idx}, and no fallback source is available."
+            )
+
+        encoded_images.append(encode_image_for_sglang(resolved_images[idx]))
+
+    return encoded_images
 
 
 def main(
@@ -133,9 +157,7 @@ def main(
             multi_modal_data = template_obj.mm_plugin._regularize_images(
                 resolved_images, image_max_pixels=image_max_pixels, image_min_pixels=image_min_pixels)
             
-            new_multi_modal_data = []
-            for mm_data in multi_modal_data:
-                new_multi_modal_data.append(encode_image_for_sglang(mm_data))
+            new_multi_modal_data = build_sglang_image_payload(multi_modal_data, resolved_images)
             
         else:
             new_multi_modal_data = None
