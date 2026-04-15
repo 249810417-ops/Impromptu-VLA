@@ -1,16 +1,39 @@
-*.json
+# Python cache
+**/__pycache__/
+*.pyc
+
+# Large / generated files
 *.jsonl
 *.pkl
-**/__pycache__/
+
+# Model weights
+Impromptu-VLA-Model/
+
+# Raw / generated data
+data/jsons/
+data/train/
+data/val/
+data_raw/
+ImpromptuData/
+trash/
+videos/
+
+# Optional generated folders
+dataset_generation/
+data_generate/
+NeuroNCAP/
+
+# Keep required config/data index files
 !nuscenes_test.json
 !nuscenes_train.json
-!dataset_info.json
-dataset_generation
-NeuroNCAP/
-data/jsons
-data/train
-data/val
-ImpromptuData
+!data/dataset_info.json
 !ds_z3_config.json
 !ds_z2_config.json
-trash/
+
+# Environment / editor
+.venv/
+venv/
+env/
+.vscode/
+.idea/
+.DS_Store
