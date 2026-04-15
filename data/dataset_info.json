@@ -26,5 +26,19 @@
             "user_tag": "user",
             "assistant_tag": "assistant"
         }
+    },
+    "nuscenes_test_available": {
+        "file_name": "../nuscenes_test_available.json",
+        "formatting": "sharegpt",
+        "columns": {
+            "messages": "messages",
+            "images": "images"
+        },
+        "tags": {
+            "role_tag": "role",
+            "content_tag": "content",
+            "user_tag": "user",
+            "assistant_tag": "assistant"
+        }
     }
 }
