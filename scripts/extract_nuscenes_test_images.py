@@ -55,12 +55,17 @@ def parse_original_paths(text: str) -> dict[str, str]:
 
 
 def reconstruct_relative_path(original_abs_path: str) -> str | None:
+    normalized_path = original_abs_path.strip().replace("\\", "/")
+
+    if normalized_path.startswith("nuscenes/"):
+        return normalized_path
+
     marker = "/nuscenes/"
-    pos = original_abs_path.find(marker)
+    pos = normalized_path.find(marker)
     if pos < 0:
         return None
 
-    return original_abs_path[pos + 1 :]
+    return normalized_path[pos + 1 :]
 
 
 def save_as_jpeg(image_bytes: bytes, output_path: Path) -> None:
@@ -110,6 +115,8 @@ def main():
                 )
                 path_mapping = parse_original_paths(original_paths_text)
                 original_abs_path = path_mapping.get(cam_front_name)
+                if not original_abs_path:
+                    original_abs_path = path_mapping.get(Path(cam_front_name).name)
                 if not original_abs_path:
                     continue
 
