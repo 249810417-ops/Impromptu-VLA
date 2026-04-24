@@ -112,7 +112,7 @@ class CachedNuScenesDataset(Dataset):
             "cam_intrinsic": cam_intrinsics,
             "gt_ego_fut_trajs": DataWrapper(torch.as_tensor(info["gt_ego_fut_trajs"])),
             "gt_ego_fut_masks": DataWrapper(torch.as_tensor(info["gt_ego_fut_masks"])),
-            "fut_boxes": [],
+            "fut_boxes": [torch.zeros(1, 0, 7) for _ in range(6)],
         }
 
 
