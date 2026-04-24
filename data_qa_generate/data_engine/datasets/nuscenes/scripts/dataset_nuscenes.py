@@ -50,6 +50,11 @@ class DataWrapper:
         self.data = data
 
 
+class DummyNuScenesCanBus:
+    def get_messages(self, *_args, **_kwargs):
+        raise FileNotFoundError("nuScenes can_bus data is unavailable")
+
+
 class CachedNuScenesDataset(Dataset):
     CAMERA_VIEWS = [
         "CAM_FRONT",
@@ -153,7 +158,12 @@ class VLMNuScenes(Dataset):
             print(
                 f"Loaded cached nuscenes dataset in {(e_time - s_time):.2f} seconds :>")
 
-        self.nusc_can_bus = NuScenesCanBus(dataroot=self.nuscenes_3d.dataroot)
+        can_bus_root = Path(self.nuscenes_3d.dataroot) / "can_bus"
+        if can_bus_root.exists():
+            self.nusc_can_bus = NuScenesCanBus(dataroot=self.nuscenes_3d.dataroot)
+        else:
+            print(f"Warning: can_bus path not found at {can_bus_root}, falling back to zeroed CAN bus features.")
+            self.nusc_can_bus = DummyNuScenesCanBus()
 
         self.length = len(self.nuscenes)
         if length is not None:
