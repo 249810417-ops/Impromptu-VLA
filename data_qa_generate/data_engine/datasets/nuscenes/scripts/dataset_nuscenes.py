@@ -29,6 +29,7 @@ PIPELINES = {
     "meta_planning": PromptNuScenesMetaPlanning,  # meta_planning
     "planning": PromptNuScenesPlanning  # planning
 }
+HELPER_PIPELINES = {"scene_description", "road_agent_analysis", "meta_planning"}
 
 v0_pipelines = [  # keep the pipeline order as is. can comment out some of them
     # assert self.use_image in ["6v", "1v", "t-6v", "t-1v", "none"]
@@ -170,8 +171,11 @@ class VLMNuScenes(Dataset):
             self.length = min(self.length, length)
 
         self.pipelines = []
-        self.external_helper = construct_external_query(
-            "Qwen/Qwen2.5-VL-72B-Instruct")
+        helper_required = any(pipeline["type"] in HELPER_PIPELINES for pipeline in pipelines)
+        self.external_helper = None
+        if helper_required:
+            self.external_helper = construct_external_query(
+                "Qwen/Qwen2.5-VL-72B-Instruct")
         for pipeline in pipelines:
             if pipeline["type"] in PIPELINES:
                 self.pipelines.append(PIPELINES[pipeline["type"]](
