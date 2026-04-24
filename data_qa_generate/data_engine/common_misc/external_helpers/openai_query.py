@@ -1,5 +1,6 @@
 from PIL import Image
 import requests
+import os
 
 def fix_helper_ret(helper_ret: str):
     """
@@ -113,9 +114,16 @@ class ExternalQueryOpenAI:
 
 def construct_external_query(model_name: str, **kwargs):
     if model_name in ["Qwen/Qwen2.5-VL-72B-Instruct", "Qwen/QVQ-72B-Preview"]:
+        api_key = kwargs.get("api_key") or os.environ.get("MODELSCOPE_API_KEY") or os.environ.get("OPENAI_API_KEY")
+        base_url = kwargs.get("base_url", "https://api-inference.modelscope.cn/v1/")
+        if not api_key:
+            raise RuntimeError(
+                "Missing API key for external helper. Set MODELSCOPE_API_KEY or OPENAI_API_KEY, "
+                "or pass api_key explicitly."
+            )
         return ExternalQueryOpenAI(
-            api_key=<your api_key>, 
-            base_url='https://api-inference.modelscope.cn/v1/',
+            api_key=api_key,
+            base_url=base_url,
             model_name=model_name)
     else:
         raise NotImplementedError

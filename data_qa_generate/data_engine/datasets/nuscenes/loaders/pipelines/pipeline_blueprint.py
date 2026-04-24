@@ -5,7 +5,6 @@ import torch
 import traceback
 import numpy as np
 from data_engine.datasets.nuscenes.loaders.mmdet3d_plugin.datasets.evaluation.planning.planning_eval import PlanningMetric
-from data_engine.common_misc.external_helpers.openai_query import construct_external_query
 
 
 class PromptNuScenesBlueprint:
