@@ -116,6 +116,12 @@ class CachedNuScenesDataset(Dataset):
         }
 
 
+def should_cache_nuscenes_dataset(dataset):
+    # The cached-info fallback is cheap to rebuild and should not be pickled,
+    # otherwise its class name may be recorded under __main__.
+    return not isinstance(dataset, CachedNuScenesDataset)
+
+
 class VLMNuScenes(Dataset):
     # Directly mapping the input images to the output images
     def __init__(self, mode="train", length=None, pipelines=[], container_out_key_comb=[], skip_nuscenes_build=False):
@@ -140,21 +146,41 @@ class VLMNuScenes(Dataset):
             else:
                 self.nuscenes_3d = None
 
-            with open(tmp_nuscenes_path, 'wb') as f:
-                pickle.dump(self.nuscenes, f)
+            if should_cache_nuscenes_dataset(self.nuscenes):
+                with open(tmp_nuscenes_path, 'wb') as f:
+                    pickle.dump(self.nuscenes, f)
             with open(tmp_nuscenes_3d_path, 'wb') as f:
                 pickle.dump(self.nuscenes_3d, f)
 
         else:
             print("Starting to load cached nuscenes dataset :>")
             s_time = time.time()
-            # To load the object back from the file
-            with open(tmp_nuscenes_path, 'rb') as f:
-                self.nuscenes = pickle.load(f)
+            try:
+                # To load the object back from the file
+                with open(tmp_nuscenes_path, 'rb') as f:
+                    self.nuscenes = pickle.load(f)
 
-            # To load the object back from the file
-            with open(tmp_nuscenes_3d_path, 'rb') as f:
-                self.nuscenes_3d = pickle.load(f)
+                # To load the object back from the file
+                with open(tmp_nuscenes_3d_path, 'rb') as f:
+                    self.nuscenes_3d = pickle.load(f)
+            except (AttributeError, ModuleNotFoundError, pickle.UnpicklingError) as exc:
+                print(f"Cached nuscenes dataset is stale or incompatible ({exc}), rebuilding.")
+                if MMDET_AVAILABLE:
+                    self.nuscenes = build_nuscenes_3d(mode=mode)
+                else:
+                    self.nuscenes = CachedNuScenesDataset(mode=mode)
+
+                if not skip_nuscenes_build:
+                    self.nuscenes_3d = NuScenes(
+                        version=self.nuscenes.version, dataroot=self.nuscenes.data_root, verbose=True)
+                else:
+                    self.nuscenes_3d = None
+
+                if should_cache_nuscenes_dataset(self.nuscenes):
+                    with open(tmp_nuscenes_path, 'wb') as f:
+                        pickle.dump(self.nuscenes, f)
+                with open(tmp_nuscenes_3d_path, 'wb') as f:
+                    pickle.dump(self.nuscenes_3d, f)
             e_time = time.time()
             print(
                 f"Loaded cached nuscenes dataset in {(e_time - s_time):.2f} seconds :>")
