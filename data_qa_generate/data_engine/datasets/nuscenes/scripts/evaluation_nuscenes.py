@@ -1,4 +1,4 @@
-from data_engine.datasets.nuscenes.dataset_nuscenes import VLMNuScenes
+from data_engine.datasets.nuscenes.scripts.dataset_nuscenes import VLMNuScenes
 
 if __name__ == '__main__':
     import os
