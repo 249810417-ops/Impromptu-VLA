@@ -41,9 +41,12 @@ class VLMNuScenes(Dataset):
     # Directly mapping the input images to the output images
     def __init__(self, mode="train", length=None, pipelines=[], container_out_key_comb=[], skip_nuscenes_build=False):
 
+        version = os.environ.get("NUSCENES_VERSION", "v1.0-mini")
+        version_tag = version.replace(".", "_").replace("-", "_")
+
         # cache it
-        tmp_nuscenes_path = f'../nuscenes_mmcv_{mode}.pkl'
-        tmp_nuscenes_3d_path = f'../nuscenes_{mode}.pkl'
+        tmp_nuscenes_path = f'../nuscenes_mmcv_{mode}_{version_tag}.pkl'
+        tmp_nuscenes_3d_path = f'../nuscenes_{mode}_{version_tag}.pkl'
 
         if not os.path.exists(tmp_nuscenes_path):
             self.nuscenes = build_nuscenes_3d(mode=mode)
@@ -265,6 +268,8 @@ class VLMNuScenes(Dataset):
 
 
 def generate_batch_dataset():
+    version = os.environ.get("NUSCENES_VERSION", "v1.0-mini")
+    dataset_suffix = "_mini" if version == "v1.0-mini" else ""
     experiments = [
         {"id": "exp", "pipelines": [
             {"type": "metadata", "use_image": "1v"},
@@ -279,11 +284,11 @@ def generate_batch_dataset():
 
         dataset = VLMNuScenes(mode="test", pipelines=v0_pipelines,
                               container_out_key_comb=v0_container_out_key_comb)
-        dataset.cache_data(f"nuscenes_test.json")
+        dataset.cache_data(f"nuscenes_test{dataset_suffix}.json")
 
         dataset = VLMNuScenes(mode="train", pipelines=v0_pipelines,
                               container_out_key_comb=v0_container_out_key_comb)
-        dataset.cache_data(f"nuscenes_train_b2.json")
+        dataset.cache_data(f"nuscenes_train_b2{dataset_suffix}.json")
 
 
 if __name__ == "__main__":

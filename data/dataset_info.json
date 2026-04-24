@@ -40,5 +40,33 @@
             "user_tag": "user",
             "assistant_tag": "assistant"
         }
+    },
+    "nuscenes_test_mini": {
+        "file_name": "nuscenes/nuscenes_test_mini.json",
+        "formatting": "sharegpt",
+        "columns": {
+            "messages": "messages",
+            "images": "images"
+        },
+        "tags": {
+            "role_tag": "role",
+            "content_tag": "content",
+            "user_tag": "user",
+            "assistant_tag": "assistant"
+        }
+    },
+    "nuscenes_train_b2_mini": {
+        "file_name": "nuscenes/nuscenes_train_b2_mini.json",
+        "formatting": "sharegpt",
+        "columns": {
+            "messages": "messages",
+            "images": "images"
+        },
+        "tags": {
+            "role_tag": "role",
+            "content_tag": "content",
+            "user_tag": "user",
+            "assistant_tag": "assistant"
+        }
     }
 }

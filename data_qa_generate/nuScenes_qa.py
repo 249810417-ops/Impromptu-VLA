@@ -13,6 +13,7 @@ import math
 import copy
 import requests
 import argparse
+import pickle
 from io import BytesIO
 from os import path as osp
 
@@ -224,9 +225,18 @@ def create_nuscenes_infos(root_path,
     """
     from nuscenes.nuscenes import NuScenes
     from nuscenes.can_bus.can_bus_api import NuScenesCanBus
+
+    class DummyNuScenesCanBus:
+        def get_messages(self, scene_name, channel):
+            raise FileNotFoundError("nuScenes can_bus data is unavailable")
+
     print(version, root_path)
     nusc = NuScenes(version=version, dataroot=root_path, verbose=True)
-    nusc_can_bus = NuScenesCanBus(dataroot=can_bus_root_path)
+    if can_bus_root_path and os.path.exists(can_bus_root_path):
+        nusc_can_bus = NuScenesCanBus(dataroot=can_bus_root_path)
+    else:
+        print(f"Warning: can_bus path not found at {can_bus_root_path}, falling back to zeroed CAN bus features.")
+        nusc_can_bus = DummyNuScenesCanBus()
     from nuscenes.utils import splits
     available_vers = ['v1.0-trainval', 'v1.0-test', 'v1.0-mini']
     assert version in available_vers
@@ -815,6 +825,13 @@ def _fill_trainval_infos(nusc,
         info['gt_agent_fut_trajs_vcs'] = gt_fut_trajs_vcs.astype(
             np.float32)
         info['gt_agent_fut_yaw_vcs'] = gt_fut_yaw_vcs.astype(np.float32)
+        info['ego_status'] = can_bus.astype(np.float32)
+        info['map_annos'] = {
+            'ped_crossing': [],
+            'divider': [],
+            'boundary': [],
+        }
+        info['gt_captions'] = np.array(names, dtype=object)
 
         ######## Senna data processing ########
         info['ego_navi_cmd'] = ego_navi_cmd
@@ -827,6 +844,10 @@ def _fill_trainval_infos(nusc,
         info['images'] = [info['cams'][idx]['data_path']
                           for idx in camera_types]
         generate_drive_qa(info, out_path, version=version)
+        if info['scene_token'] in train_scenes:
+            train_nusc_infos.append(copy.deepcopy(info))
+        else:
+            val_nusc_infos.append(copy.deepcopy(info))
         # ego_fut_trajs = np.cumsum(info['gt_ego_fut_trajs'], axis=-2).reshape(-1)
         # ego_fut_trajs = str(list(ego_fut_trajs))
         # vlm_info = {}
@@ -852,7 +873,19 @@ def _fill_trainval_infos(nusc,
         #     else:
         #         val_nusc_infos.append(vlm_info)
 
-    # return train_nusc_infos, val_nusc_infos
+    metadata = dict(version=version)
+    suffix = "_mini" if version == "v1.0-mini" else ""
+    train_info_path = osp.join(out_path, f"nuscenes_infos_train{suffix}.pkl")
+    val_info_path = osp.join(out_path, f"nuscenes_infos_val{suffix}.pkl")
+
+    os.makedirs(out_path, exist_ok=True)
+    with open(train_info_path, "wb") as f:
+        pickle.dump({"infos": train_nusc_infos, "metadata": metadata}, f)
+    with open(val_info_path, "wb") as f:
+        pickle.dump({"infos": val_nusc_infos, "metadata": metadata}, f)
+
+    print(f"Saved {len(train_nusc_infos)} train infos to {train_info_path}")
+    print(f"Saved {len(val_nusc_infos)} val infos to {val_info_path}")
 
 
 def get_global_sensor_pose(rec, nusc, inverse=False):

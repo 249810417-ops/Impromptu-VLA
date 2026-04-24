@@ -1,10 +1,17 @@
+import os
+from pathlib import Path
+
 # Base Config
-version = 'mini'
-version = 'trainval'
 length = {'trainval': 28130, 'mini': 323}
 
+_repo_root = Path(__file__).resolve().parents[6]
+_default_data_root = _repo_root / "v1.0-mini"
+data_root = os.environ.get("NUSCENES_DATAROOT", str(_default_data_root)).replace("\\", "/")
+version = os.environ.get("NUSCENES_VERSION", "v1.0-mini")
+version_key = "mini" if version == "v1.0-mini" else "trainval"
+info_suffix = "_mini" if version_key == "mini" else ""
+
 dataset_type = "NuScenes3DDataset"
-data_root = "data_engine/data_storage/external_datasets/nuscenes/"
 anno_root = "data_engine/data_storage/cached_responses/"
 
 class_names = [
@@ -42,7 +49,7 @@ data_basic_config = dict(
     classes=class_names,
     map_classes=map_class_names,
     modality=input_modality,
-    version="v1.0-trainval",
+    version=version,
 )
 
 train_pipeline = [
@@ -102,7 +109,7 @@ data = dict(
     workers_per_gpu=batch_size,
     train=dict(
         **data_basic_config,
-        ann_file=anno_root + "nuscenes_infos_train.pkl",
+        ann_file=anno_root + f"nuscenes_infos_train{info_suffix}.pkl",
         pipeline=train_pipeline,
         test_mode=False,
         data_aug_conf=data_aug_conf,
@@ -112,14 +119,14 @@ data = dict(
     ),
     val=dict(
         **data_basic_config,
-        ann_file=anno_root + "nuscenes_infos_val.pkl",
+        ann_file=anno_root + f"nuscenes_infos_val{info_suffix}.pkl",
         pipeline=train_pipeline,
         data_aug_conf=data_aug_conf,
         test_mode=True,
     ),
     test=dict(
         **data_basic_config,
-        ann_file=anno_root + "nuscenes_infos_val.pkl",
+        ann_file=anno_root + f"nuscenes_infos_val{info_suffix}.pkl",
         pipeline=train_pipeline,
         data_aug_conf=data_aug_conf,
         test_mode=True,

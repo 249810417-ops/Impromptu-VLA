@@ -123,7 +123,8 @@ class PromptNuScenesMetadata(PromptNuScenesBlueprint):
         else:
             container_out["images"] = container_in['img_metas'].data['img_filename']
             for idx in range(len(container_out["images"])):
-                container_out["images"][idx] = os.path.join("data_engine/data_storage/external_datasets/nuscenes/", container_out["images"][idx][container_out["images"][idx].find("samples"):])
+                rel_path = container_out["images"][idx][container_out["images"][idx].find("samples"):]
+                container_out["images"][idx] = os.path.join(self.nuscenes.dataroot, rel_path)
             if self.use_image == "1v":
                 container_out["images"] = [container_out["images"][0]]
             elif self.use_image == "6v":
