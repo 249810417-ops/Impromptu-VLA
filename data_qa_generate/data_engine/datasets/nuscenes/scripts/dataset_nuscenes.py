@@ -4,14 +4,22 @@ import json
 import torch
 import math
 import pickle
+from pathlib import Path
 from tqdm import tqdm
 from nuscenes import NuScenes
 from nuscenes.can_bus.can_bus_api import NuScenesCanBus
 from p_tqdm import p_map
 from torch.utils.data import Dataset
-from data_engine.datasets.nuscenes.loaders.mmdet3d_plugin.nuscenes_3d import build_nuscenes_3d
 from data_engine.common_misc.external_helpers.openai_query import construct_external_query
 from data_engine.datasets.nuscenes.loaders.pipelines import *
+
+try:
+    from data_engine.datasets.nuscenes.loaders.mmdet3d_plugin.nuscenes_3d import build_nuscenes_3d
+    MMDET_AVAILABLE = True
+except Exception as exc:
+    build_nuscenes_3d = None
+    MMDET_AVAILABLE = False
+    MMDET_IMPORT_ERROR = exc
 
 PIPELINES = {
     "metadata": PromptNuScenesMetadata,
@@ -37,6 +45,71 @@ v0_container_out_key_comb = ["scene_description",
 # v0_container_out_key_comb = ["meta_planning", "planning"]
 
 
+class DataWrapper:
+    def __init__(self, data):
+        self.data = data
+
+
+class CachedNuScenesDataset(Dataset):
+    CAMERA_VIEWS = [
+        "CAM_FRONT",
+        "CAM_FRONT_RIGHT",
+        "CAM_FRONT_LEFT",
+        "CAM_BACK",
+        "CAM_BACK_LEFT",
+        "CAM_BACK_RIGHT",
+    ]
+
+    def __init__(self, mode="train"):
+        version = os.environ.get("NUSCENES_VERSION", "v1.0-mini")
+        version_tag = "_mini" if version == "v1.0-mini" else ""
+        split = "train" if mode == "train" else "val"
+
+        repo_root = Path(__file__).resolve().parents[5]
+        info_dir = Path(os.environ.get(
+            "NUSCENES_INFO_DIR",
+            repo_root / "data_qa_generate" / "data_engine" / "data_storage" / "cached_responses",
+        ))
+        info_path = info_dir / f"nuscenes_infos_{split}{version_tag}.pkl"
+        if not info_path.exists():
+            raise FileNotFoundError(
+                f"Cached info file not found: {info_path}. Run nuScenes_qa.py first."
+            )
+
+        with open(info_path, "rb") as f:
+            infos = pickle.load(f)
+
+        if isinstance(infos, dict) and "infos" in infos:
+            infos = infos["infos"]
+
+        self.infos = infos
+        self.version = version
+        self.data_root = str(repo_root)
+
+    def __len__(self):
+        return len(self.infos)
+
+    def __getitem__(self, idx):
+        info = self.infos[idx]
+        img_filenames = []
+        cam_intrinsics = []
+        for cam in self.CAMERA_VIEWS:
+            cam_info = info["cams"][cam]
+            img_filenames.append(cam_info["data_path"])
+            cam_intrinsics.append(cam_info["cam_intrinsic"])
+
+        return {
+            "img_metas": DataWrapper({
+                "token": info["token"],
+                "img_filename": img_filenames,
+            }),
+            "cam_intrinsic": cam_intrinsics,
+            "gt_ego_fut_trajs": DataWrapper(torch.as_tensor(info["gt_ego_fut_trajs"])),
+            "gt_ego_fut_masks": DataWrapper(torch.as_tensor(info["gt_ego_fut_masks"])),
+            "fut_boxes": [],
+        }
+
+
 class VLMNuScenes(Dataset):
     # Directly mapping the input images to the output images
     def __init__(self, mode="train", length=None, pipelines=[], container_out_key_comb=[], skip_nuscenes_build=False):
@@ -49,7 +122,11 @@ class VLMNuScenes(Dataset):
         tmp_nuscenes_3d_path = f'../nuscenes_{mode}_{version_tag}.pkl'
 
         if not os.path.exists(tmp_nuscenes_path):
-            self.nuscenes = build_nuscenes_3d(mode=mode)
+            if MMDET_AVAILABLE:
+                self.nuscenes = build_nuscenes_3d(mode=mode)
+            else:
+                print(f"Falling back to cached nuScenes infos because MMDetection stack is unavailable: {MMDET_IMPORT_ERROR}")
+                self.nuscenes = CachedNuScenesDataset(mode=mode)
 
             if not skip_nuscenes_build:
                 self.nuscenes_3d = NuScenes(

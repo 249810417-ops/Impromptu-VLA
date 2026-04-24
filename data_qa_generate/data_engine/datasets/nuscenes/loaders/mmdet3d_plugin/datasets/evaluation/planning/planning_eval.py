@@ -4,9 +4,6 @@ import torch.nn as nn
 import numpy as np
 from shapely.geometry import Polygon
 
-from mmcv.utils import print_log
-from mmdet.datasets import build_dataset, build_dataloader
-
 from data_engine.datasets.nuscenes.loaders.mmdet3d_plugin.datasets.utils import box3d_to_corners
 
 
@@ -132,6 +129,9 @@ class PlanningMetric():
 
 
 def planning_eval(results, eval_config, logger):
+    from mmcv.utils import print_log
+    from mmdet.datasets import build_dataset, build_dataloader
+
     dataset = build_dataset(eval_config)
     dataloader = build_dataloader(
             dataset, samples_per_gpu=1, workers_per_gpu=1, shuffle=False, dist=False)
